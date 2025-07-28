@@ -200,7 +200,7 @@ class Code2MD:
         # Check exclusion first for non-root directories
         if path != self.root_dir:
             if path.is_dir():
-                if self.tree_only and self.include_files is not None:
+                if self.include_files is not None:
                     if not self.is_directory_needed_for_included_files(path):
                         return ""
                 elif self.should_exclude_dir(path):
@@ -224,8 +224,8 @@ class Code2MD:
                 # Filter entries
                 for entry in all_entries:
                     if entry.is_dir():
-                        # In tree-only mode with include_files, check if directory is needed
-                        if self.tree_only and self.include_files is not None:
+                        # Check if directory is needed when include_files is specified
+                        if self.include_files is not None:
                             if self.is_directory_needed_for_included_files(entry):
                                 entries.append(entry)
                         elif not self.should_exclude_dir(entry):
