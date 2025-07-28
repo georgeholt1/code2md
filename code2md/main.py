@@ -153,28 +153,82 @@ class Code2MD:
 
         return False
 
+    def is_directory_needed_for_included_files(self, dir_path: Path) -> bool:
+        """Check if a directory is needed to show path to included files."""
+        if self.include_files is None:
+            return True
+
+        try:
+            relative_dir_path = str(dir_path.relative_to(self.root_dir))
+        except ValueError:
+            # Path is not relative to root_dir
+            return False
+
+        # Check if any included file is within this directory or its subdirectories
+        for file_path in self.include_files:
+            # Convert included file path to Path object for proper comparison
+            included_file_path = Path(file_path)
+
+            # Get all parent directories of the included file
+            file_parents = []
+            current_parent = included_file_path.parent
+            while str(current_parent) != ".":
+                file_parents.append(str(current_parent))
+                current_parent = current_parent.parent
+
+            # Check if this directory is the root directory and file has parents
+            if relative_dir_path == "" and (file_parents or "/" not in file_path):
+                return True
+
+            # Check if this directory matches any parent directory of the included file
+            if relative_dir_path in file_parents:
+                return True
+
+            # Check if this directory exactly matches the file's direct parent
+            if (
+                relative_dir_path == str(included_file_path.parent)
+                and str(included_file_path.parent) != "."
+            ):
+                return True
+
+        return False
+
     def generate_tree_structure(
         self, path: Path, prefix: str = "", is_last: bool = True
     ) -> str:
         """Generate a tree-like directory structure string."""
+        # Check exclusion first for non-root directories
+        if path != self.root_dir:
+            if path.is_dir():
+                if self.tree_only and self.include_files is not None:
+                    if not self.is_directory_needed_for_included_files(path):
+                        return ""
+                elif self.should_exclude_dir(path):
+                    return ""
+
+        # Generate the current item's tree representation
         if path == self.root_dir:
             tree_str = f"{path.name}/\n"
-            entries = []
         else:
             connector = "└── " if is_last else "├── "
             tree_str = f"{prefix}{connector}{path.name}{'/' if path.is_dir() else ''}\n"
-            entries = []
 
-        if path.is_dir() and not self.should_exclude_dir(path):
+        # Process directory contents
+        if path.is_dir():
             try:
                 all_entries = sorted(
                     path.iterdir(), key=lambda x: (x.is_file(), x.name.lower())
                 )
 
+                entries = []
                 # Filter entries
                 for entry in all_entries:
                     if entry.is_dir():
-                        if not self.should_exclude_dir(entry):
+                        # In tree-only mode with include_files, check if directory is needed
+                        if self.tree_only and self.include_files is not None:
+                            if self.is_directory_needed_for_included_files(entry):
+                                entries.append(entry)
+                        elif not self.should_exclude_dir(entry):
                             entries.append(entry)
                     else:
                         if not self.should_exclude_file(entry):
@@ -189,9 +243,10 @@ class Code2MD:
                     else:
                         new_prefix = prefix + ("    " if is_last else "│   ")
 
-                    tree_str += self.generate_tree_structure(
+                    subtree = self.generate_tree_structure(
                         entry, new_prefix, is_last_entry
                     )
+                    tree_str += subtree
 
             except PermissionError:
                 pass
