@@ -1,0 +1,5 @@
+build
+twine
+pre-commit
+black==25.1
+isort==5.13

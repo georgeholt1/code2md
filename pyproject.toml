@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code2md"
+version = "0.1.0"
+authors = [
+  { name="George Holt", email="georgeholt77@googlemail.com" },
+]
+description = "Convert code directory structure and contents to markdown"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dynamic = ["optional-dependencies"]
+
+[tool.setuptools.dynamic]
+optional-dependencies.dev =  { file = ["requirements-dev.txt"] }
+
+[project.urls]
+"Homepage" = "https://pypi.org/project/code2md/"
+"Source" = "https://github.com/georgeholt1/code2md"
+
+[project.scripts]
+code2md = "code2md.__main__:main"
