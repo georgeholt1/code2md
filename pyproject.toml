@@ -24,6 +24,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dynamic = ["optional-dependencies"]
+dependencies = [
+    "pyyaml"
+]
 
 [tool.setuptools.dynamic]
 optional-dependencies.dev =  { file = ["requirements-dev.txt"] }

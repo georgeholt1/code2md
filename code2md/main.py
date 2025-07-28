@@ -10,7 +10,9 @@ import argparse
 import fnmatch
 import sys
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
+
+import yaml
 
 
 class Code2MD:
@@ -21,6 +23,61 @@ class Code2MD:
         self.exclude_patterns: List[str] = []
         self.root_dir: Path = Path.cwd()
         self.output_file: str = "code2md_output.md"
+        self.config_path: Path = None
+
+    def load_config(self, config_path: Path) -> Dict[str, Any]:
+        """Load configuration from YAML file."""
+        self.config_path = config_path
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+            return config
+        except Exception as e:
+            raise ValueError(f"Error loading config file '{config_path}': {str(e)}")
+
+    def apply_config(self, config: Dict[str, Any]) -> None:
+        """Apply configuration from loaded config dict."""
+        if "directory" in config:
+            self.root_dir = Path(config["directory"]).resolve()
+
+        if "include_files" in config:
+            include_files = config["include_files"]
+            if isinstance(include_files, str):
+                self.include_files = [
+                    f.strip() for f in include_files.split(",") if f.strip()
+                ]
+            elif isinstance(include_files, list):
+                self.include_files = include_files
+
+        if "exclude_files" in config:
+            exclude_files = config["exclude_files"]
+            if isinstance(exclude_files, str):
+                self.exclude_files = set(
+                    f.strip() for f in exclude_files.split(",") if f.strip()
+                )
+            elif isinstance(exclude_files, list):
+                self.exclude_files = set(exclude_files)
+
+        if "exclude_dirs" in config:
+            exclude_dirs = config["exclude_dirs"]
+            if isinstance(exclude_dirs, str):
+                self.exclude_dirs = set(
+                    d.strip() for d in exclude_dirs.split(",") if d.strip()
+                )
+            elif isinstance(exclude_dirs, list):
+                self.exclude_dirs = set(exclude_dirs)
+
+        if "exclude_patterns" in config:
+            exclude_patterns = config["exclude_patterns"]
+            if isinstance(exclude_patterns, str):
+                self.exclude_patterns = [
+                    p.strip() for p in exclude_patterns.split(",") if p.strip()
+                ]
+            elif isinstance(exclude_patterns, list):
+                self.exclude_patterns = exclude_patterns
+
+        if "output" in config:
+            self.output_file = config["output"]
 
     def should_exclude_dir(self, dir_path: Path) -> bool:
         """Check if a directory should be excluded."""
@@ -62,6 +119,10 @@ class Code2MD:
 
         # Always exclude the output filename
         if file_path.name == self.output_file:
+            return True
+
+        # Always exclude config file
+        if file_path.name == Path(self.config_path).name:
             return True
 
         rel_path_str = str(file_path.relative_to(self.root_dir))
@@ -222,11 +283,27 @@ def main():
 Examples:
   code2md                                    # Process current directory
   code2md /path/to/project                   # Process specific directory
+  code2md --config config.yaml              # Use YAML config file
   code2md --include-files "main.py,utils.py" # Include only specific files
   code2md --exclude-files "config.py"       # Exclude specific files
   code2md --exclude-dirs "__pycache__,.git" # Exclude directories
   code2md --exclude-patterns "*.log,*_test_*" # Exclude file patterns
   code2md --output my_project.md             # Custom output filename
+
+Config file format (YAML):
+  directory: "/path/to/project"              # Optional: directory to process
+  include_files:                             # Optional: files to include (list or comma-separated string)
+    - "main.py"
+    - "utils.py"
+  exclude_files:                             # Optional: files to exclude (list or comma-separated string)
+    - "config.py"
+  exclude_dirs:                              # Optional: directories to exclude (list or comma-separated string)
+    - "__pycache__"
+    - ".git"
+  exclude_patterns:                          # Optional: patterns to exclude (list or comma-separated string)
+    - "*.log"
+    - "*_test_*"
+  output: "my_project.md"                    # Optional: output filename
         """,
     )
 
@@ -235,6 +312,12 @@ Examples:
         nargs="?",
         default=".",
         help="Top-level directory to process (default: current directory)",
+    )
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to YAML config file (overridden by command line options)",
     )
 
     parser.add_argument(
@@ -275,13 +358,40 @@ Examples:
     # Initialize code2md instance
     code2md = Code2MD()
 
-    # Set configuration
-    code2md.root_dir = Path(args.directory).resolve()
-    code2md.include_files = args.include_files
-    code2md.exclude_files = set(args.exclude_files)
-    code2md.exclude_dirs = set(args.exclude_dirs)
-    code2md.exclude_patterns = args.exclude_patterns
-    code2md.output_file = args.output
+    # Load config file if specified
+    if args.config:
+        try:
+            config_path = Path(args.config)
+            if not config_path.exists():
+                print(
+                    f"Error: Config file '{args.config}' does not exist",
+                    file=sys.stderr,
+                )
+                return 1
+
+            config = code2md.load_config(config_path)
+            code2md.apply_config(config)
+
+        except Exception as e:
+            print(f"Error: {str(e)}", file=sys.stderr)
+            return 1
+
+    # Apply command line arguments (these override config file settings)
+    if args.directory != ".":
+        code2md.root_dir = Path(args.directory).resolve()
+    elif not hasattr(code2md, "root_dir") or code2md.root_dir == Path.cwd():
+        code2md.root_dir = Path(args.directory).resolve()
+
+    if args.include_files is not None:
+        code2md.include_files = args.include_files
+    if args.exclude_files:
+        code2md.exclude_files.update(args.exclude_files)
+    if args.exclude_dirs:
+        code2md.exclude_dirs.update(args.exclude_dirs)
+    if args.exclude_patterns:
+        code2md.exclude_patterns.extend(args.exclude_patterns)
+    if args.output != "code2md_output.md":
+        code2md.output_file = args.output
 
     # Validate directory
     if not code2md.root_dir.exists():

@@ -1,5 +1,6 @@
-# code2md output
+# code2md input/output
 code2md_output.md
+code2md-config.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
