@@ -24,6 +24,7 @@ class Code2MD:
         self.root_dir: Path = Path.cwd()
         self.output_file: str = "code2md_output.md"
         self.config_path: Path = None
+        self.tree_only: bool = False
 
     def load_config(self, config_path: Path) -> Dict[str, Any]:
         """Load configuration from YAML file."""
@@ -78,6 +79,9 @@ class Code2MD:
 
         if "output" in config:
             self.output_file = config["output"]
+
+        if "tree_only" in config:
+            self.tree_only = config["tree_only"]
 
     def should_exclude_dir(self, dir_path: Path) -> bool:
         """Check if a directory should be excluded."""
@@ -229,24 +233,29 @@ class Code2MD:
         # Generate tree structure
         tree_structure = self.generate_tree_structure(self.root_dir)
 
-        # Collect all files
-        all_files = self.collect_files(self.root_dir)
-
         # Start building markdown
-        markdown_content = "Following is a directory tree and file contents.\n\n"
+        markdown_content = "Following is a directory tree"
+        if not self.tree_only:
+            markdown_content += " and file contents"
+        markdown_content += ".\n\n"
+
         markdown_content += "```\n"
         markdown_content += tree_structure
         markdown_content += "```\n\n"
 
-        # Add file contents
-        for file_path in all_files:
-            relative_path = file_path.relative_to(self.root_dir)
-            content = self.read_file_content(file_path)
+        # Add file contents only if not tree-only mode
+        if not self.tree_only:
+            # Collect all files
+            all_files = self.collect_files(self.root_dir)
 
-            markdown_content += f"{relative_path}\n"
-            markdown_content += "```\n"
-            markdown_content += content
-            markdown_content += "\n```\n\n"
+            for file_path in all_files:
+                relative_path = file_path.relative_to(self.root_dir)
+                content = self.read_file_content(file_path)
+
+                markdown_content += f"{relative_path}\n"
+                markdown_content += "```\n"
+                markdown_content += content
+                markdown_content += "\n```\n\n"
 
         return markdown_content
 
@@ -284,6 +293,7 @@ Examples:
   code2md                                    # Process current directory
   code2md /path/to/project                   # Process specific directory
   code2md --config config.yaml              # Use YAML config file
+  code2md --tree-only                       # Generate only directory tree
   code2md --include-files "main.py,utils.py" # Include only specific files
   code2md --exclude-files "config.py"       # Exclude specific files
   code2md --exclude-dirs "__pycache__,.git" # Exclude directories
@@ -292,6 +302,7 @@ Examples:
 
 Config file format (YAML):
   directory: "/path/to/project"              # Optional: directory to process
+  tree_only: true                            # Optional: generate only tree structure
   include_files:                             # Optional: files to include (list or comma-separated string)
     - "main.py"
     - "utils.py"
@@ -348,6 +359,12 @@ Config file format (YAML):
     )
 
     parser.add_argument(
+        "--tree-only",
+        action="store_true",
+        help="Generate only the directory tree structure (no file contents)",
+    )
+
+    parser.add_argument(
         "--output",
         default="code2md_output.md",
         help="Output filename (default: code2md_output.md)",
@@ -392,6 +409,8 @@ Config file format (YAML):
         code2md.exclude_patterns.extend(args.exclude_patterns)
     if args.output != "code2md_output.md":
         code2md.output_file = args.output
+    if args.tree_only:
+        code2md.tree_only = True
 
     # Validate directory
     if not code2md.root_dir.exists():
