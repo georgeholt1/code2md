@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "code2md"
-version = "0.1.0"
+version = "1.0.0"
 authors = [
   { name="George Holt", email="georgeholt77@googlemail.com" },
 ]
