@@ -5,7 +5,7 @@ Convert code directory structure and contents to markdown format.
 ## Installation
 
 ```bash
-pip install .
+pip install code2md
 ```
 
 Or for development:
